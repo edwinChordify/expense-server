@@ -8,8 +8,23 @@ app.use(cors())
 app.use(express.json())
 
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
 
 const saltRounds = 10;
+const secretKey = 'edwin007'; 
+// const authenticateToken = (req, res, next) => {
+//     const {token} = req.body
+
+//     if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+//     jwt.verify(token, secretKey, (err, user) => {
+//         if (err) return res.status(403).json({ error: 'Invalid token' });
+
+//         req.user = user;
+//         next();
+//     });
+// };
 
 
 
@@ -39,39 +54,35 @@ app.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     try {
-
         const loginUser = await User.findOne({ where: { email } });
 
         if (!loginUser) {
-            return res.status(401).json("User not found");
+            return res.status(401).json({ error: 'User not found' });
         }
-
-
-
 
         const passwordMatch = await bcrypt.compare(password, loginUser.password);
+
         if (passwordMatch) {
+            // Generate JWT token
+            const token = jwt.sign({ userId: loginUser.id, email: loginUser.email }, secretKey, { expiresIn: '1h' });
 
-
-            return res.status(200).json(loginUser);
+            return res.status(200).json({ token,loginUser });
         } else {
-            return res.status(401).json("Incorrect password");
+            return res.status(401).json({ error: 'Incorrect password' });
         }
-    }
-
-    catch (err) {
+    } catch (err) {
         console.log(err);
-        return res.status(500).json("User not exist");
+        return res.status(500).json({ error: 'Internal Server Error' });
     }
 });
 
 app.post('/addexpense/:id', async (req, res) => {
     const userId = req.params.id
-    const { amount, category, despription } = req.body
+    const { amount, category, despription,token} = req.body
     try {
         const user = await User.findByPk(userId)
         if (user) {
-            const expense = await user.createPost({ amount, category, despription })
+            const expense = await user.createPost({ amount, category, despription,token })
             return res.status(200).json(expense)
         }
         else {
